@@ -7,6 +7,16 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="167*"/>
+            <ColumnDefinition Width="5*"/>
+            <ColumnDefinition Width="613*"/>
+        </Grid.ColumnDefinitions>
+        <GridSplitter Grid.Column="1" HorizontalAlignment="Left" Height="414" VerticalAlignment="Top" Width="3" DragIncrement="2" ResizeDirection="Columns"/>
+        <TextBox Name ="TokenTextBox" Grid.Column="0" HorizontalAlignment="Left" Height="23" Margin="10,10,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="149"/>
+        <Button Name ="TokenButton" Grid.Column="0" Content="Подтвердить" HorizontalAlignment="Left" Margin="10,38,0,0" VerticalAlignment="Top" Width="149" Click="Button_Click"/>
+        <TextBlock  Name ="Output" Grid.Column="2" HorizontalAlignment="Left" Margin="5,10,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="370" Width="603" Foreground="#FF258907" Background="Black"/>
+        <TextBox  x:Name ="Input" Grid.Column="2" HorizontalAlignment="Left" Margin="5,385,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="24" Width="603" Foreground="#FF258907" Background="Black"/>
+
     </Grid>
 </Window>
