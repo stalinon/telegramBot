@@ -12,12 +12,11 @@ using System.Threading.Tasks;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Collections.Generic;
+using System.Text.Json;
 
 namespace telegramBot
 {
-    /// <summary>
-    /// Логика взаимодействия для MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
         static string token = "1772067882:AAFzkYj4WFXlUk-2r1Y5UJSmCQAVQLe6IcE";
@@ -25,13 +24,37 @@ namespace telegramBot
         public string message = "";
         public long chatId;
         public string filename = "";
+        public List<string> sign = new List<string>();
+        Random rand = new Random(DateTime.Now.GetHashCode());
 
         public MainWindow()
         {
             InitializeComponent();
+            SignInitialization();
             botClient.OnMessage += Bot_OnMessage;
             Input.PreviewKeyDown += KeyDownHandler;
             botClient.StartReceiving();
+        }
+
+        private async void SignInitialization()
+        {
+            using (FileStream fs = new FileStream("sign.json", FileMode.OpenOrCreate))
+            {
+                if (new FileInfo("sign.json").Length != 0)
+                {
+                    sign = await JsonSerializer.DeserializeAsync<List<string>>(fs);
+                }
+            }
+        }
+        
+        private async void SignButton_Click(object sender, RoutedEventArgs e)
+        {
+            sign.Add(SignTextBox.Text);
+            using (FileStream fs = new FileStream("sign.json", FileMode.OpenOrCreate))
+            {
+                await JsonSerializer.SerializeAsync(fs, sign);
+            }
+            SignTextBox.Text = "";
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -76,10 +99,9 @@ namespace telegramBot
                 FontFamily = new FontFamily("Lobster"),
                 FontSize = 20,
                 DropShadow = true,
-                Text = "something",
+                Text = sign[rand.Next(0,sign.Count)],
                 Style = System.Drawing.FontStyle.Bold
             };
-
             using (MemoryStream inStream = new MemoryStream(photoBytes))
             {
                 using (MemoryStream outStream = new MemoryStream())
@@ -146,5 +168,6 @@ namespace telegramBot
                 }
             }
         }
+        
     }
 }
