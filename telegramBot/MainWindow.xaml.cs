@@ -19,9 +19,9 @@ namespace telegramBot
 {
     public partial class MainWindow : Window
     {
-        static string token = "1772067882:AAFzkYj4WFXlUk-2r1Y5UJSmCQAVQLe6IcE";
+        static string token = "1772067882:AAFzkYj4WFXlUk-2r1Y5UJSmCQAVQLe6IcE"; //заглушка, бота с таким токеном не существует
         static TelegramBotClient botClient = new TelegramBotClient(token);
-        public string message = "";
+        public string message = ""; 
         public long chatId;
         public string filename = "";
         public List<string> sign = new List<string>();
@@ -62,7 +62,8 @@ namespace telegramBot
             token = TokenTextBox.Text;
             botClient = new TelegramBotClient(token);
             var me = botClient.GetMeAsync().Result;
-            Output.Text = "Успешно подключено \n";
+            Output.Items.Add("Успешно подключено \n");
+            Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
         }
 
         private void Bot_OnMessage(object sender, Telegram.Bot.Args.MessageEventArgs e)
@@ -70,16 +71,20 @@ namespace telegramBot
             chatId = e.Message.Chat.Id;
 
             if (e.Message.Type == Telegram.Bot.Types.Enums.MessageType.Text)
-                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Text += $"{e.Message.Chat.Username}\t {DateTime.Now}: {e.Message.Text}\n"; }));
+                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"{e.Message.Chat.Username}\t {DateTime.Now}: {e.Message.Text}\n"); }));
+                Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
+
             if (e.Message.Type == Telegram.Bot.Types.Enums.MessageType.Photo)
             {
-                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Text += $"{e.Message.Chat.Username}\t {DateTime.Now}: Photo\n"; }));
+                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"{e.Message.Chat.Username}\t {DateTime.Now}: Photo\n"); }));
+                Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
                 string fileId = (e.Message.Photo[e.Message.Photo.Length - 1]).FileId;
                 var path = @"C:\Users\aestriplex\source\repos\telegramBot\telegramBot\images\";
                 var pathSend = @"C:\Users\aestriplex\source\repos\telegramBot\telegramBot\imagesSend\";
                 
                 filename = Path.GetRandomFileName().Remove(8,3);
-                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Text += filename + "\n"; }));
+                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add(filename + "\n"); }));
+                Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
                 DownloadFile(fileId, path);
                 Thread.Sleep(1000);
                 ImageProcessing(path, pathSend);
@@ -162,7 +167,8 @@ namespace telegramBot
                 if (message != "")
                 {
                     botClient.SendTextMessageAsync(chatId, message);
-                    Output.Text += $"You\t {DateTime.Now}: {message}\n";
+                    Output.Items.Add($"You\t {DateTime.Now}: {message}\n");
+                    Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
                     message = "";
                     Input.Text = "";
                 }
