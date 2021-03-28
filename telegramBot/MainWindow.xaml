@@ -15,11 +15,12 @@
         <GridSplitter Grid.Column="1" HorizontalAlignment="Left" Height="414" VerticalAlignment="Top" Width="3" DragIncrement="2" ResizeDirection="Columns" Background="Black"/>
         <TextBox Name ="TokenTextBox" Grid.Column="0" HorizontalAlignment="Left" Height="23" Margin="10,10,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="149" Background="Black" Foreground="#FF258907"/>
         <Button Name ="TokenButton" Grid.Column="0" Content="Подтвердить" HorizontalAlignment="Left" Margin="10,38,0,0" VerticalAlignment="Top" Width="149" Click="Button_Click" Background="#FF3A3E3A" Foreground="#FFB4B4B4"/>
-        
         <ListBox Name ="Output" Grid.Column="2" HorizontalAlignment="Left" Margin="5,10,0,0" VerticalAlignment="Top" Height="370" Width="603" Foreground="#FF258907" Background="Black"/>
         <TextBox  x:Name ="Input" Grid.Column="2" HorizontalAlignment="Left" Margin="5,385,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="24" Width="603" Foreground="#FF258907" Background="Black"/>
         <TextBox x:Name ="SignTextBox" Grid.Column="0" HorizontalAlignment="Left" Height="23" Margin="10,357,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="149" Background="Black" Foreground="#FF258907"/>
         <Button x:Name ="SignButton" Grid.Column="0" Content="Добавить подпись" HorizontalAlignment="Left" Margin="10,385,0,0" VerticalAlignment="Top" Width="149" Click="SignButton_Click" Background="#FF3A3E3A" Foreground="#FFB4B4B4"/>
+        <ComboBox x:Name="people" HorizontalAlignment="Left" Margin="10,94,0,0" VerticalAlignment="Top" Width="149"/>
+        <Button x:Name ="TokenButton_Copy" Grid.Column="0" Content="Выбрать" HorizontalAlignment="Left" Margin="10,121,0,0" VerticalAlignment="Top" Width="149" Background="#FF3A3E3A" Foreground="#FFB4B4B4" Click="Choose_Click"/>
 
     </Grid>
 </Window>

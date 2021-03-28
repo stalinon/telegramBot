@@ -19,80 +19,82 @@ namespace telegramBot
 {
     public partial class MainWindow : Window
     {
-        static string token = "1772067882:AAFzkYj4WFXlUk-2r1Y5UJSmCQAVQLe6IcE"; //заглушка, бота с таким токеном не существует
-        static TelegramBotClient botClient = new TelegramBotClient(token);
+
+        static string token;
+        static TelegramBotClient botClient;
+
+        public long chatId; 
+        //хранит id текущего чата, обновляется при получении ботом нового сообщения
+
+        public Dictionary<string, Telegram.Bot.Types.Chat> chats = new Dictionary<string, Telegram.Bot.Types.Chat>(); 
+        //словарь, сохраняющий в виде ключа username каждого написавшего, а в качестве значения - информацию о чате
+
         public string message = ""; 
-        public long chatId;
+        //хранит текст сообщения
         public string filename = "";
+        //хранит название файла изображения
         public List<string> sign = new List<string>();
+        //список с подписями к фото
         Random rand = new Random(DateTime.Now.GetHashCode());
+
+        Thread thread;
+        //поток, в котором выполняются операции, связанные с ботом (требовалось, чтобы преостановить запуск бота до ввода его токена)
 
         public MainWindow()
         {
             InitializeComponent();
-            SignInitialization();
-            botClient.OnMessage += Bot_OnMessage;
+            Initialization();
+            thread = new Thread(() => {
+                botClient.OnMessage += Bot_OnMessage;
+                botClient.StartReceiving();
+            });
+            thread.Interrupt();
             Input.PreviewKeyDown += KeyDownHandler;
-            botClient.StartReceiving();
         }
 
-        private async void SignInitialization()
-        {
-            using (FileStream fs = new FileStream("sign.json", FileMode.OpenOrCreate))
-            {
-                if (new FileInfo("sign.json").Length != 0)
-                {
-                    sign = await JsonSerializer.DeserializeAsync<List<string>>(fs);
-                }
-            }
-        }
-        
-        private async void SignButton_Click(object sender, RoutedEventArgs e)
-        {
-            sign.Add(SignTextBox.Text);
-            using (FileStream fs = new FileStream("sign.json", FileMode.OpenOrCreate))
-            {
-                await JsonSerializer.SerializeAsync(fs, sign);
-            }
-            SignTextBox.Text = "";
-        }
-
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            token = TokenTextBox.Text;
-            botClient = new TelegramBotClient(token);
-            var me = botClient.GetMeAsync().Result;
-            Output.Items.Add("Успешно подключено \n");
-            Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
-        }
-
-        private void Bot_OnMessage(object sender, Telegram.Bot.Args.MessageEventArgs e)
+        //<summary>
+        //Обрабатывает пришедшее от пользователя сообщение
+        //</summary>
+        private async void Bot_OnMessage(object sender, Telegram.Bot.Args.MessageEventArgs e)
         {
             chatId = e.Message.Chat.Id;
-
+            if (e.Message.Chat.Username == null) e.Message.Chat.Username = "X3";
+            //добавляем в словарь chat с текущим пользователем, если его там нет
+            if (!chats.ContainsKey(e.Message.Chat.Username))
+            {
+                chats.Add(e.Message.Chat.Username, e.Message.Chat);
+                await Dispatcher.BeginInvoke(new ThreadStart(delegate {people.Items.Add(e.Message.Chat.Username); }));
+                using (FileStream fs = new FileStream("users.json", FileMode.OpenOrCreate))
+                {
+                    await JsonSerializer.SerializeAsync(fs, chats);
+                }
+            }
+            //если полученное сообщение - текстовое, выводим в консоль
             if (e.Message.Type == Telegram.Bot.Types.Enums.MessageType.Text)
-                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"{e.Message.Chat.Username}\t {DateTime.Now}: {e.Message.Text}\n"); }));
-                Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
-
+                await Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"{e.Message.Chat.Username}\t {DateTime.Now}: {e.Message.Text}\n"); Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]); }));
+            //если полученное сообщение - фото, выводим в консоль "Photo" и название, под которым оно сохранится в images.
+            //Затем обрабатываем и сохраняем в imagesSend, отправляем обратно текущему пользователю.
             if (e.Message.Type == Telegram.Bot.Types.Enums.MessageType.Photo)
             {
-                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"{e.Message.Chat.Username}\t {DateTime.Now}: Photo\n"); }));
-                Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
+                await Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"{e.Message.Chat.Username}\t {DateTime.Now}: Photo\n"); Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]); }));
                 string fileId = (e.Message.Photo[e.Message.Photo.Length - 1]).FileId;
                 var path = @"C:\Users\aestriplex\source\repos\telegramBot\telegramBot\images\";
                 var pathSend = @"C:\Users\aestriplex\source\repos\telegramBot\telegramBot\imagesSend\";
                 
                 filename = Path.GetRandomFileName().Remove(8,3);
-                Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add(filename + "\n"); }));
-                Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
+                await Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add(filename + "\n"); Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]); }));
                 DownloadFile(fileId, path);
                 Thread.Sleep(1000);
-                ImageProcessing(path, pathSend);
-                SendPhoto(chatId.ToString(), pathSend + filename + ".jpg", token);
+                ImageProcessingSign(path, pathSend);
+                await SendPhoto(chatId.ToString(), pathSend + filename + ".jpg", token);
             }
         }
 
-        private void ImageProcessing(string path, string pathSend)
+        //<summary>
+        //Обрабатывает фотографию - добавляет на нее случайную подпись, 
+        //десериализованную в список из файла "sign.json"
+        //</summary>
+        private void ImageProcessingSign(string path, string pathSend)
         {
             byte[] photoBytes = File.ReadAllBytes(path + filename + ".jpg");
             FileStream fs = File.OpenWrite(pathSend + filename + ".jpg");
@@ -102,7 +104,6 @@ namespace telegramBot
             {
                 FontColor = Color.White,
                 FontFamily = new FontFamily("Lobster"),
-                FontSize = 20,
                 DropShadow = true,
                 Text = sign[rand.Next(0,sign.Count)],
                 Style = System.Drawing.FontStyle.Bold
@@ -114,9 +115,9 @@ namespace telegramBot
 
                     using (ImageFactory image = new ImageFactory(preserveExifData: true))
                     {
-                        // Load, resize, set the format and quality and save an image.
-                        image.Load(inStream);  // грузим картинку
-                        text.Position = new System.Drawing.Point(image.Image.Width / 2, 9 * image.Image.Height / 10);
+                        image.Load(inStream); 
+                        text.Position = new System.Drawing.Point(image.Image.Width / 10, 8 * image.Image.Height / 10);
+                        text.FontSize = image.Image.Height / 20;
                         image.Watermark(text);
                         image.Format(format);
                         image.Save(outStream);
@@ -128,7 +129,9 @@ namespace telegramBot
                 }
             }
         }
-
+        //<summary>
+        //Скачивание файла по id
+        //</summary>
         private async void DownloadFile(string fileId, string path)
         {
             var file = await botClient.GetFileAsync(fileId);
@@ -137,7 +140,9 @@ namespace telegramBot
             fs.Close();
             fs.Dispose();
         }
-
+        //<summary>
+        //Отправка фото по chat.id
+        //</summary>
         public async static Task SendPhoto(string chatId, string filePath, string token)
         {
             var url = string.Format("https://api.telegram.org/bot{0}/sendPhoto", token);
@@ -158,7 +163,10 @@ namespace telegramBot
                 }
             }
         }
-
+        //<summary>
+        //Обрабатывает нажатие кнопки Enter при вводе в консоль.
+        //Происходит отправка введенного текста в текущий чат.
+        //</summary>
         private void KeyDownHandler(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == System.Windows.Input.Key.Enter)
@@ -174,6 +182,66 @@ namespace telegramBot
                 }
             }
         }
-        
+        //<summary>
+        //Десериализует подписи к фото из "sign.json"
+        //Десериализует информацию о чате из "users.json"
+        //</summary>
+        private async void Initialization()
+        {
+            using (FileStream fs = new FileStream("sign.json", FileMode.OpenOrCreate))
+            {
+                if (new FileInfo("sign.json").Length != 0)
+                {
+                    sign = await JsonSerializer.DeserializeAsync<List<string>>(fs);
+                }
+            }
+
+            using (FileStream fs = new FileStream("users.json", FileMode.OpenOrCreate))
+            {
+                if (new FileInfo("users.json").Length != 0)
+                {
+                    chats = await JsonSerializer.DeserializeAsync<Dictionary<string, Telegram.Bot.Types.Chat>>(fs);
+                }
+                foreach (var item in chats)
+                {
+                    people.Items.Add(item.Key);
+                }
+            }
+        }
+        //<summary>
+        //Обрабатывает нажатие кнопки "Выбрать" при выборе чата в ComboBox
+        //</summary>
+        private void Choose_Click(object sender, RoutedEventArgs e)
+        {
+            Telegram.Bot.Types.Chat chat = new Telegram.Bot.Types.Chat();
+            if (chats.TryGetValue(people.Text, out chat))
+            {
+                chatId = chat.Id;
+                Output.Items.Add("Успешно \n");
+            }
+        }
+        //<summary>
+        //Обрабатывает нажатие кнопки, добавление введенной в TextBox подписи в соответствующий список
+        //</summary>
+        private async void SignButton_Click(object sender, RoutedEventArgs e)
+        {
+            sign.Add(SignTextBox.Text);
+            using (FileStream fs = new FileStream("sign.json", FileMode.OpenOrCreate))
+            {
+                await JsonSerializer.SerializeAsync(fs, sign);
+            }
+            SignTextBox.Text = "";
+        }
+        //<summary>
+        //Обрабатывает нажатие кнопки, подключает бота
+        //</summary>
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            token = TokenTextBox.Text;
+            botClient = new TelegramBotClient(token);
+            thread.Start();
+            Output.Items.Add("Успешно подключено \n");
+            Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]);
+        }
     }
 }
