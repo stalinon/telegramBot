@@ -23,22 +23,26 @@ namespace telegramBot
         static string token;
         static TelegramBotClient botClient;
 
-        public long chatId; 
+        long chatId; 
         //хранит id текущего чата, обновляется при получении ботом нового сообщения
 
-        public Dictionary<string, Telegram.Bot.Types.Chat> chats = new Dictionary<string, Telegram.Bot.Types.Chat>(); 
+        Dictionary<string, Telegram.Bot.Types.Chat> chats = new Dictionary<string, Telegram.Bot.Types.Chat>(); 
         //словарь, сохраняющий в виде ключа username каждого написавшего, а в качестве значения - информацию о чате
 
-        public string message = ""; 
+        string message = ""; 
         //хранит текст сообщения
-        public string filename = "";
+        string filename = "";
         //хранит название файла изображения
-        public List<string> sign = new List<string>();
+        List<string> sign = new List<string>();
         //список с подписями к фото
         Random rand = new Random(DateTime.Now.GetHashCode());
 
         Thread thread;
         //поток, в котором выполняются операции, связанные с ботом (требовалось, чтобы преостановить запуск бота до ввода его токена)
+
+        bool isSpecialSignNeeded = false;
+        string specialSign = "";
+        //спецподписи к изображениям
 
         public MainWindow()
         {
@@ -71,7 +75,24 @@ namespace telegramBot
             }
             //если полученное сообщение - текстовое, выводим в консоль
             if (e.Message.Type == Telegram.Bot.Types.Enums.MessageType.Text)
+            {
                 await Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"{e.Message.Chat.Username}\t {DateTime.Now}: {e.Message.Text}\n"); Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]); }));
+                
+                if (e.Message.Text.Contains("/добавить "))
+                {
+                    specialSign = e.Message.Text.Substring(e.Message.Text.IndexOf(' ') + 1);
+                    isSpecialSignNeeded = true;
+                    sign.Add(specialSign);
+                    using (FileStream fs = new FileStream("sign.json", FileMode.OpenOrCreate))
+                    {
+                        await JsonSerializer.SerializeAsync(fs, sign);
+                    }
+                    message = $"Добавлено: \n {sign[sign.Count-1]}";
+                    await botClient.SendTextMessageAsync(chatId, message);
+                    await Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"You\t {DateTime.Now}: {message}\n"); Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]); }));
+                }
+                message = "";
+            }
             //если полученное сообщение - фото, выводим в консоль "Photo" и название, под которым оно сохранится в images.
             //Затем обрабатываем и сохраняем в imagesSend, отправляем обратно текущему пользователю.
             if (e.Message.Type == Telegram.Bot.Types.Enums.MessageType.Photo)
@@ -80,13 +101,19 @@ namespace telegramBot
                 string fileId = (e.Message.Photo[e.Message.Photo.Length - 1]).FileId;
                 var path = @"C:\Users\aestriplex\source\repos\telegramBot\telegramBot\images\";
                 var pathSend = @"C:\Users\aestriplex\source\repos\telegramBot\telegramBot\imagesSend\";
-                
                 filename = Path.GetRandomFileName().Remove(8,3);
                 await Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add(filename + "\n"); Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]); }));
                 DownloadFile(fileId, path);
                 Thread.Sleep(1000);
-                ImageProcessingSign(path, pathSend);
+                if (!isSpecialSignNeeded)
+                    ImageProcessingSign(path, pathSend, sign[rand.Next(0, sign.Count)]);
+                else
+                {
+                    ImageProcessingSign(path, pathSend, specialSign);
+                    isSpecialSignNeeded = false;
+                }
                 await SendPhoto(chatId.ToString(), pathSend + filename + ".jpg", token);
+                await Dispatcher.BeginInvoke(new ThreadStart(delegate { Output.Items.Add($"You\t {DateTime.Now}: Photo\n"); Output.ScrollIntoView(Output.Items[Output.Items.Count - 1]); }));
             }
         }
 
@@ -94,7 +121,7 @@ namespace telegramBot
         //Обрабатывает фотографию - добавляет на нее случайную подпись, 
         //десериализованную в список из файла "sign.json"
         //</summary>
-        private void ImageProcessingSign(string path, string pathSend)
+        private void ImageProcessingSign(string path, string pathSend, string signPhoto)
         {
             byte[] photoBytes = File.ReadAllBytes(path + filename + ".jpg");
             FileStream fs = File.OpenWrite(pathSend + filename + ".jpg");
@@ -105,7 +132,7 @@ namespace telegramBot
                 FontColor = Color.White,
                 FontFamily = new FontFamily("Lobster"),
                 DropShadow = true,
-                Text = sign[rand.Next(0,sign.Count)],
+                Text = signPhoto,
                 Style = System.Drawing.FontStyle.Bold
             };
             using (MemoryStream inStream = new MemoryStream(photoBytes))
@@ -116,7 +143,7 @@ namespace telegramBot
                     using (ImageFactory image = new ImageFactory(preserveExifData: true))
                     {
                         image.Load(inStream); 
-                        text.Position = new System.Drawing.Point(image.Image.Width / 10, 8 * image.Image.Height / 10);
+                        text.Position = new System.Drawing.Point(image.Image.Width / 10, 7 * image.Image.Height / 10);
                         text.FontSize = image.Image.Height / 20;
                         image.Watermark(text);
                         image.Format(format);
@@ -217,7 +244,7 @@ namespace telegramBot
             if (chats.TryGetValue(people.Text, out chat))
             {
                 chatId = chat.Id;
-                Output.Items.Add("Успешно \n");
+                Output.Items.Add($"Успешная смена адресата на {chat.Username}\n");
             }
         }
         //<summary>
